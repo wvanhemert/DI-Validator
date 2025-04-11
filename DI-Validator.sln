@@ -1,11 +1,14 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.12.35707.178 d17.12
+VisualStudioVersion = 17.12.35707.178
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DI-Validator-Analyzers", "DI-Validator-Analyzers\DI-Validator-Analyzers.csproj", "{C9B35702-E47E-43AF-A8E5-B8E8AC6EF9F0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DI-Validator-Tester", "DI-Validator-Tester\DI-Validator-Tester.csproj", "{B3CAA38E-38B8-47FB-A51E-12B031B9A72C}"
+	ProjectSection(ProjectDependencies) = postProject
+		{C9B35702-E47E-43AF-A8E5-B8E8AC6EF9F0} = {C9B35702-E47E-43AF-A8E5-B8E8AC6EF9F0}
+	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DI-Validator-Extension", "DI-Validator-Extension\DI-Validator-Extension.csproj", "{EFE831F2-67B2-40F5-BBB9-FEBCABBA2108}"
 EndProject
@@ -30,5 +33,8 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DF8807E8-6394-4E06-91F7-9E54C3339472}
 	EndGlobalSection
 EndGlobal
