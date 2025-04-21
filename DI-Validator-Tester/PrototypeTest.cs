@@ -109,6 +109,92 @@ namespace FooApi.Controllers
             Console.WriteLine($"Found diagnostic: {diagnostic.GetMessage()} at {diagnostic.Location}");
         }
 
+        [TestMethod]
+        public void AnalyzeWebApiProject_FindsNoMissingDependencies()
+        {
+            // Program.cs from test case
+            var programCs = @"
+using Services.Extensions;
+
+/// FooApi 
+var builder = WebApplication.CreateBuilder(args);
+
+// Add services to the container.
+// Onderstaande services zijn correct geregistreerd en worden gebruikt.
+builder.Services.AddSingleton<ISingletonService, SingletonService>();
+builder.Services.AddScoped<IScopedService, ScopedService>();
+builder.Services.AddTransient<ITransientService, TransientService>();
+
+// Deze service is bewust uitgecommentarieerd om een foutmelding te genereren in MissingRegistrationController
+//builder.Services.AddTransient<IUnregisteredService, UnregisteredService>();
+
+// Onderstaande services hebben een registratie maar worden niet gebruikt in een controller en kunnen opgeruimd worden
+builder.Services.AddTransient<ILegacyService, LegacyService>();
+
+// Deze services hebben problemen in de dependencies van de services; uitgecomment omdat deze al ondervangen wordt op startup
+//builder.Services.AddSingleton<IDependencyNoMatchingScopeService, DependencyNoMatchingScopeService>();
+
+// Deze service wordt via een extension method toegevoegd (en is ongebruikt)
+builder.Services.AddExtensionMethodService();
+
+builder.Services.AddControllers();
+// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
+var app = builder.Build();
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+app.UseHttpsRedirection();
+
+app.UseAuthorization();
+
+app.MapControllers();
+
+app.Run();
+";
+
+            // Controller taken from test case, with an added registered service
+            var controllerCs = @"
+using Microsoft.AspNetCore.Mvc;
+
+namespace FooApi.Controllers
+{
+    [ApiController]
+    [Route(""[controller]"")]
+    public class MissingRegistrationController : FooControllerBase
+    {
+        private readonly IUnregisteredService _unregisteredService;
+        private readonly ISingletonService _singletonService;
+
+        public MissingRegistrationController(ISingletonService singletonService)
+        {
+
+            _singletonService = singletonService;
+        }
+
+        [HttpGet]
+        public IActionResult Get()
+        {
+            var guids = FormatGuids(_unregisteredService.GetOperationID());
+            return Ok(guids);
+        }
+    }
+}";
+
+            // Run
+            var diagnostics = GetDiagnostics(new[] { programCs, controllerCs });
+
+            // Assert - 0 should be found
+            Assert.AreEqual(0, diagnostics.Length, "Expected no unregistered service warnings");
+        }
+
 
         private static Diagnostic[] GetDiagnostics(string[] sources)
         {
