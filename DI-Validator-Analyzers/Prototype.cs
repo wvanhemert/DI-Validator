@@ -36,34 +36,65 @@ namespace DI_Validator_Analyzers
             "TryAddSingleton", "TryAddScoped", "TryAddTransient"
         };
 
+        private class AnalysisData
+        {
+            public HashSet<string> RegisteredServices { get; } = new HashSet<string>();
+            public List<ControllerConstructorInfo> ControllerConstructors { get; } = new List<ControllerConstructorInfo>();
+        }
+
+        private class ControllerConstructorInfo
+        {
+            public ConstructorDeclarationSyntax Constructor { get; }
+            public INamedTypeSymbol ClassSymbol { get; }
+            public SemanticModel SemanticModel { get; }
+
+            public ControllerConstructorInfo(
+                ConstructorDeclarationSyntax constructor,
+                INamedTypeSymbol classSymbol,
+                SemanticModel semanticModel)
+            {
+                Constructor = constructor;
+                ClassSymbol = classSymbol;
+                SemanticModel = semanticModel;
+            }
+        }
+
         public override void Initialize(AnalysisContext context)
         {
             context.ConfigureGeneratedCodeAnalysis(GeneratedCodeAnalysisFlags.None);
             context.EnableConcurrentExecution();
 
+            // Use a two-phase approach to solve the race condition
             context.RegisterCompilationStartAction(compilationStartContext =>
             {
-                var registeredServices = new HashSet<string>();
+                var analysisData = new AnalysisData();
 
-                // collect all DI registrations
+                // Phase 1: Collect all DI registrations
                 compilationStartContext.RegisterSyntaxNodeAction(
-                    ctx => CollectRegisteredTypes(ctx, registeredServices),
+                    ctx => CollectRegisteredTypes(ctx, analysisData.RegisteredServices),
                     SyntaxKind.InvocationExpression);
 
-                // check controller constructor params
+                // Phase 1: Also collect all controller constructors (but don't analyze them yet)
                 compilationStartContext.RegisterSyntaxNodeAction(
-                    ctx => AnalyzeControllerConstructor(ctx, registeredServices),
+                    ctx => CollectControllerConstructors(ctx, analysisData),
                     SyntaxKind.ConstructorDeclaration);
 
-                // debug output of registered types
+                // Phase 2: After all files have been processed, analyze the controller constructors
                 compilationStartContext.RegisterCompilationEndAction(ctx =>
                 {
+                    // Debug output of registered types
                     Console.WriteLine("\n--------- REGISTERED TYPES ---------");
-                    foreach (var type in registeredServices.OrderBy(t => t))
+                    foreach (var type in analysisData.RegisteredServices.OrderBy(t => t))
                     {
                         Console.WriteLine($"[DI Debug] Registered: {type}");
                     }
                     Console.WriteLine("-----------------------------------\n");
+
+                    // Now analyze all collected controller constructors
+                    foreach (var controllerInfo in analysisData.ControllerConstructors)
+                    {
+                        AnalyzeControllerConstructor(ctx, controllerInfo, analysisData.RegisteredServices);
+                    }
                 });
             });
         }
@@ -78,7 +109,7 @@ namespace DI_Validator_Analyzers
 
             var methodName = memberAccess.Name.Identifier.Text;
 
-            // check if it is a DI registration method from the list, could be tricked because it doesnt check the type
+            // check if it is a DI registration method from the list
             if (!RegistrationMethods.Contains(methodName))
                 return;
 
@@ -97,7 +128,7 @@ namespace DI_Validator_Analyzers
             }
         }
 
-        private void AnalyzeControllerConstructor(SyntaxNodeAnalysisContext context, HashSet<string> registeredServices)
+        private void CollectControllerConstructors(SyntaxNodeAnalysisContext context, AnalysisData analysisData)
         {
             var constructor = (ConstructorDeclarationSyntax)context.Node;
 
@@ -110,10 +141,27 @@ namespace DI_Validator_Analyzers
             if (classDeclaration == null)
                 return;
 
-            // making sure its a controller class
+            // Check if it's a controller class
             var classSymbol = context.SemanticModel.GetDeclaredSymbol(classDeclaration);
             if (classSymbol == null || !IsController(classSymbol))
                 return;
+
+            // Store the controller constructor info for later analysis
+            analysisData.ControllerConstructors.Add(new ControllerConstructorInfo(
+                constructor,
+                classSymbol,
+                context.SemanticModel));
+
+            Console.WriteLine($"[DI Debug] Collected controller constructor: {classSymbol.Name}.{constructor.Identifier}");
+        }
+
+        private void AnalyzeControllerConstructor(
+            CompilationAnalysisContext context,
+            ControllerConstructorInfo controllerInfo,
+            HashSet<string> registeredServices)
+        {
+            var constructor = controllerInfo.Constructor;
+            var classSymbol = controllerInfo.ClassSymbol;
 
             Console.WriteLine($"\n[DI Debug] Analyzing controller constructor: {classSymbol.Name}.{constructor.Identifier}");
 
