@@ -15,12 +15,13 @@ namespace DI_Validator_Tester
         public async Task AnalyzeSolution()
         {
             // Arrange
-            var solutionPath = @"C:\Users\wvanhemert\source\repos\DIAssertionsCasus\DIAssertionsCasus.sln";
+            var solutionPath = @"G:\DEV\repos\sopra\DIAssertionsCasus-master\DIAssertionsCasus.sln";
             var config = new DI_Validator_Analyzers.Models.SolutionAnalysisConfig
             {
                 SolutionPath = solutionPath,
-                SeverityFilter = new[] { DiagnosticSeverity.Warning, DiagnosticSeverity.Error },
-                EnableLogging = true
+                SeverityFilter = new[] { DiagnosticSeverity.Warning, DiagnosticSeverity.Error, DiagnosticSeverity.Info },
+                EnableLogging = false,
+                FailOnInfo = false,
             };
 
             List<Diagnostic> diagnostics = new List<Diagnostic>();
@@ -45,8 +46,15 @@ namespace DI_Validator_Tester
 
             // Assert
             Assert.IsFalse(diagnostics.Any(d => d.Id == "DI001"), "Some expected dependencies are not registered.");
-            Assert.IsFalse(diagnostics.Any(), "Dependency Injection Warnings were found.");
-            
+            Assert.IsFalse(diagnostics.Any(d => d.Severity >= DiagnosticSeverity.Warning), "Dependency Injection Warnings were found.");
+            if (config.FailOnInfo)
+            {
+                Assert.IsFalse(diagnostics.Any(d => d.Severity >= DiagnosticSeverity.Info), "Dependency Injection info was produced, and counted as a warning.");
+                Assert.IsFalse(diagnostics.Any());
+            }
+            else Assert.IsTrue(diagnostics.Any(d => d.Severity <= DiagnosticSeverity.Info));
+
+
         }
     }
 }

@@ -5,6 +5,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.CodeAnalysis.MSBuild;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
@@ -26,17 +27,63 @@ namespace DI_Validator_Analyzers
             var solution = await workspace.OpenSolutionAsync(config.SolutionPath);
 
             var diagnostics = new List<Diagnostic>();
-            var analyzers = new DiagnosticAnalyzer[]
+
+            AnalysisData data = new();
+
+            var collectionAnalyzers = new DiagnosticAnalyzer[]
             {
-                new MissingRegistrationAnalyzer(config.EnableLogging),
+                new RegistrationCollectionAnalyzer(config.EnableLogging, data),
             };
+            var validationAnalyzers = new DiagnosticAnalyzer[]
+            {
+                new RegistrationValidationAnalyzer(config.EnableLogging, data),
+            };
+            var unusedAnalyzers = new DiagnosticAnalyzer[]
+            {
+                new UnusedRegisteredDependencyAnalyzer(config.EnableLogging, data),
+            };
+
+            // running the collection
+            if (config.EnableLogging) Console.WriteLine($"---- Starting collection of DI data for solution: {solution.FilePath} ----");
 
             foreach (var project in solution.Projects)
             {
                 var compilation = await project.GetCompilationAsync();
                 if (compilation == null) continue;
 
-                var withAnalyzers = compilation.WithAnalyzers(analyzers.ToImmutableArray());
+                var withAnalyzers = compilation.WithAnalyzers(collectionAnalyzers.ToImmutableArray());
+                var results = await withAnalyzers.GetAnalyzerDiagnosticsAsync();
+            }
+
+            data = RegistrationDataParser.ParseExtensionMethodData(data, config.EnableLogging);
+
+            // running the validation
+            if (config.EnableLogging) Console.WriteLine($"---- Starting validation for solution: {solution.FilePath} ----");
+
+            foreach (var project in solution.Projects)
+            {
+                var compilation = await project.GetCompilationAsync();
+                if (compilation == null) continue;
+
+                var withAnalyzers = compilation.WithAnalyzers(validationAnalyzers.ToImmutableArray());
+                var results = await withAnalyzers.GetAnalyzerDiagnosticsAsync();
+
+                foreach (var diag in results)
+                {
+                    if (config.SeverityFilter.Any() && !config.SeverityFilter.Contains(diag.Severity))
+                        continue;
+
+                    diagnostics.Add(diag);
+                    // could put extra logging here
+                }
+            }
+
+            foreach (var project in solution.Projects)
+            {
+                var compilation = await project.GetCompilationAsync();
+                if (compilation == null) continue;
+
+                var withAnalyzers = compilation.WithAnalyzers(unusedAnalyzers.ToImmutableArray());
                 var results = await withAnalyzers.GetAnalyzerDiagnosticsAsync();
 
                 foreach (var diag in results)

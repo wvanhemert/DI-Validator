@@ -8,11 +8,12 @@ using System.Threading.Tasks;
 
 namespace DI_Validator_Analyzers.Models
 {
-    internal class ControllerConstructorInfo
+    public class ControllerConstructorInfo
     {
         public ConstructorDeclarationSyntax Constructor { get; }
         public INamedTypeSymbol ClassSymbol { get; }
         public SemanticModel SemanticModel { get; }
+        public string OriginAssemblyName { get; }
 
         public ControllerConstructorInfo(
             ConstructorDeclarationSyntax constructor,
@@ -22,6 +23,7 @@ namespace DI_Validator_Analyzers.Models
             Constructor = constructor;
             ClassSymbol = classSymbol;
             SemanticModel = semanticModel;
+            OriginAssemblyName = semanticModel.Compilation.AssemblyName;
         }
     }
 }

@@ -13,5 +13,6 @@ namespace DI_Validator_Analyzers.Models
         public string SolutionPath { get; set; }
         public IEnumerable<DiagnosticSeverity> SeverityFilter { get; set; } = Enumerable.Empty<DiagnosticSeverity>();
         public bool EnableLogging { get; set; } = false;
+        public bool FailOnInfo { get; set; } = false;
     }
 }
