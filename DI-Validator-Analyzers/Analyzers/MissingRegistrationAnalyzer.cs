@@ -2,16 +2,18 @@
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
+using DI_Validator_Analyzers.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
 
-namespace DI_Validator_Analyzers
+namespace DI_Validator_Analyzers.Analyzers
 {
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
-    public class DependencyInjectionRegistrationAnalyzer : DiagnosticAnalyzer
+    public class MissingRegistrationAnalyzer : DiagnosticAnalyzer
     {
+        // -- Diagnostic info setup --
         public const string DiagnosticId = "DI001";
         private const string Category = "Dependency Injection";
         private static readonly LocalizableString Title = "Missing Dependency Injection Registration";
@@ -29,34 +31,11 @@ namespace DI_Validator_Analyzers
 
         public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
-        // the list of registration methods that we will recognize
-        private static readonly HashSet<string> RegistrationMethods = new HashSet<string>
-        {
-            "AddSingleton", "AddScoped", "AddTransient",
-            "TryAddSingleton", "TryAddScoped", "TryAddTransient"
-        };
+        bool enableLogging = false;
 
-        private class AnalysisData
+        public MissingRegistrationAnalyzer(bool enableLogging)
         {
-            public HashSet<string> RegisteredServices { get; } = new HashSet<string>();
-            public List<ControllerConstructorInfo> ControllerConstructors { get; } = new List<ControllerConstructorInfo>();
-        }
-
-        private class ControllerConstructorInfo
-        {
-            public ConstructorDeclarationSyntax Constructor { get; }
-            public INamedTypeSymbol ClassSymbol { get; }
-            public SemanticModel SemanticModel { get; }
-
-            public ControllerConstructorInfo(
-                ConstructorDeclarationSyntax constructor,
-                INamedTypeSymbol classSymbol,
-                SemanticModel semanticModel)
-            {
-                Constructor = constructor;
-                ClassSymbol = classSymbol;
-                SemanticModel = semanticModel;
-            }
+            this.enableLogging = enableLogging;
         }
 
         public override void Initialize(AnalysisContext context)
@@ -67,6 +46,8 @@ namespace DI_Validator_Analyzers
             // Use a two-phase approach to solve the race condition
             context.RegisterCompilationStartAction(compilationStartContext =>
             {
+                Log($"--- Starting analysis of project: {compilationStartContext.Compilation.AssemblyName} ---");
+                Log("");
                 var analysisData = new AnalysisData();
 
                 // Phase 1: Collect all DI registrations
@@ -83,48 +64,69 @@ namespace DI_Validator_Analyzers
                 compilationStartContext.RegisterCompilationEndAction(ctx =>
                 {
                     // Debug output of registered types
-                    Console.WriteLine("\n--------- REGISTERED TYPES ---------");
-                    foreach (var type in analysisData.RegisteredServices.OrderBy(t => t))
+                    if (enableLogging)
                     {
-                        Console.WriteLine($"[DI Debug] Registered: {type}");
+                        Log("");
+                        Log("--------- REGISTERED TYPES ---------");
+                        foreach (var type in analysisData.RegisteredServices.OrderBy(t => t.ToDisplayString()))
+                        {
+                            Log($"Registered: {type}");
+                        }
+                        Log("-----------------------------------");
+                        Log("");
                     }
-                    Console.WriteLine("-----------------------------------\n");
 
                     // Now analyze all collected controller constructors
                     foreach (var controllerInfo in analysisData.ControllerConstructors)
                     {
                         AnalyzeControllerConstructor(ctx, controllerInfo, analysisData.RegisteredServices);
                     }
+
+                    Log($"--- Finished analysis of project: {ctx.Compilation.AssemblyName} ---");
+                    Log("");
                 });
             });
         }
 
-        private void CollectRegisteredTypes(SyntaxNodeAnalysisContext context, HashSet<string> registeredServices)
+        private void CollectRegisteredTypes(SyntaxNodeAnalysisContext context, HashSet<ITypeSymbol> registeredServices)
         {
             var invocation = (InvocationExpressionSyntax)context.Node;
 
+            //Console.WriteLine(invocation.ToString());
+
             // check if the call has member access
-            if (!(invocation.Expression is MemberAccessExpressionSyntax memberAccess))
+            if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
                 return;
 
-            var methodName = memberAccess.Name.Identifier.Text;
+            var symbolInfo = context.SemanticModel.GetSymbolInfo(invocation);
+            if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
+                return;
+
+            // ensure its an extension method from Microsoft.Extensions.DependencyInjection
+            var containingNamespace = methodSymbol.ContainingNamespace.ToDisplayString();
+            var containingType = methodSymbol.ContainingType?.Name;
+
+            if (containingNamespace != Helpers.DiNamespace ||
+                containingType != Helpers.ServiceCollectionServiceExtensions)
+                return;
+
+            var methodName = methodSymbol.Name;
 
             // check if it is a DI registration method from the list
-            if (!RegistrationMethods.Contains(methodName))
+            if (!Helpers.RegistrationMethods.Contains(methodName))
                 return;
 
-            Console.WriteLine($"[DI Debug] Found DI method: {methodName} at {invocation.GetLocation().GetLineSpan().StartLinePosition}");
+            Log($"Found DI method: {methodName} at {invocation.GetLocation().GetLineSpan().StartLinePosition}");
 
             // get type name and add it to the list
             if (memberAccess.Name is GenericNameSyntax genericName)
             {
-                foreach (var typeArg in genericName.TypeArgumentList.Arguments)
+                var typeSymbol = context.SemanticModel.GetTypeInfo(genericName.TypeArgumentList.Arguments.First()).Type;
+                if (typeSymbol != null)
                 {
-                    var typeName = typeArg.ToString();
-                    registeredServices.Add(typeName);
-                    Console.WriteLine($"[DI Debug] Registered type from syntax: {typeName}");
+                    if (registeredServices.Add(typeSymbol))
+                        Log($"Registered type: {typeSymbol}");
                 }
-                return;
             }
         }
 
@@ -152,41 +154,42 @@ namespace DI_Validator_Analyzers
                 classSymbol,
                 context.SemanticModel));
 
-            Console.WriteLine($"[DI Debug] Collected controller constructor: {classSymbol.Name}.{constructor.Identifier}");
+            Log($"Collected controller constructor: {classSymbol.Name}.{constructor.Identifier}");
         }
 
         private void AnalyzeControllerConstructor(
             CompilationAnalysisContext context,
             ControllerConstructorInfo controllerInfo,
-            HashSet<string> registeredServices)
+            HashSet<ITypeSymbol> registeredServices)
         {
             var constructor = controllerInfo.Constructor;
             var classSymbol = controllerInfo.ClassSymbol;
 
-            Console.WriteLine($"\n[DI Debug] Analyzing controller constructor: {classSymbol.Name}.{constructor.Identifier}");
+            Log($"Analyzing controller constructor: {classSymbol.Name}.{constructor.Identifier}");
 
             // checking all constructor params
             foreach (var parameter in constructor.ParameterList.Parameters)
             {
-                var parameterType = parameter.Type.ToString();
-                Console.WriteLine($"[DI Debug] Checking parameter: {parameter.Identifier} of type {parameterType}");
+                var parameterSymbol = controllerInfo.SemanticModel.GetTypeInfo(parameter.Type).Type as INamedTypeSymbol;
+                Log($"Checking parameter: {parameter.Identifier} of type {parameterSymbol}");
 
                 // check if type is not in the registered list
-                if (!registeredServices.Contains(parameterType))
+                if (!registeredServices.Contains(parameterSymbol))
                 {
-                    Console.WriteLine($"[DI Debug] NOT REGISTERED: {parameterType}");
+                    Log($"NOT REGISTERED: {parameterSymbol}");
                     var diagnostic = Diagnostic.Create(
                         Rule,
                         parameter.Type.GetLocation(),
-                        parameterType);
+                        parameterSymbol);
 
                     context.ReportDiagnostic(diagnostic);
                 }
                 else
                 {
-                    Console.WriteLine($"[DI Debug] Found registration for: {parameterType}");
+                    Log($"Found registration for: {parameterSymbol}");
                 }
             }
+            Log("");
         }
 
         private bool IsController(INamedTypeSymbol classSymbol)
@@ -194,7 +197,7 @@ namespace DI_Validator_Analyzers
             // just checking if class name ends with "Controller"
             if (classSymbol.Name.EndsWith("Controller"))
             {
-                Console.WriteLine($"[DI Debug] Class {classSymbol.Name} identified as controller by name convention");
+                Log($"Class {classSymbol.Name} identified as controller by name convention");
                 return true;
             }
 
@@ -204,7 +207,7 @@ namespace DI_Validator_Analyzers
             {
                 if (baseType.Name == "ControllerBase" || baseType.Name == "Controller")
                 {
-                    Console.WriteLine($"[DI Debug] Class {classSymbol.Name} identified as controller by inheritance from {baseType.Name}");
+                    Log($"Class {classSymbol.Name} identified as controller by inheritance from {baseType.Name}");
                     return true;
                 }
 
@@ -213,5 +216,11 @@ namespace DI_Validator_Analyzers
 
             return false;
         }
+
+        private void Log(string message)
+        {
+            if (enableLogging) Console.WriteLine($"[DI Debug] {message}");
+        }
+
     }
 }

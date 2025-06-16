@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Diagnostics;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Diagnostics;
+using DI_Validator_Analyzers.Analyzers;
 
 namespace DI_Validator_Tester
 {
@@ -198,7 +199,7 @@ namespace FooApi.Controllers
 
         private static Diagnostic[] GetDiagnostics(string[] sources)
         {
-            var analyzer = new DependencyInjectionRegistrationAnalyzer();
+            var analyzer = new MissingRegistrationAnalyzer(true);
 
             var projectId = ProjectId.CreateNewId();
             var solution = new AdhocWorkspace()

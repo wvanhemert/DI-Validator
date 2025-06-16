@@ -2,20 +2,20 @@
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using DI_Validator_Analyzers;
+using DI_Validator_Analyzers.Analyzers;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DI_Validator_Tester
 {
     [TestClass]
-    public class ProjectAnalyzerTests
+    public class ProjectAnalyzerPrototypeTests
     {
         [TestMethod]
         public async Task AnalyzeSourceFiles_WithoutMSBuild_FindsMissingDependencies()
         {
             // This test is validation for the ProjectAnalyzer class.
             // Create the analyzer instance
-            var analyzer = new DependencyInjectionRegistrationAnalyzer();
+            var analyzer = new MissingRegistrationAnalyzer(true);
 
             // Create temp directory for test files
             string tempDir = Path.Combine(Path.GetTempPath(), "DIAnalyzerTest_" + Guid.NewGuid().ToString());
@@ -86,7 +86,7 @@ public class ScopedService : IScopedService {}
 
                 // Filter for DI001 diagnostics
                 var diIssues = diagnostics
-                    .Where(d => d.Id == DependencyInjectionRegistrationAnalyzer.DiagnosticId)
+                    .Where(d => d.Id == MissingRegistrationAnalyzer.DiagnosticId)
                     .ToArray();
 
                 // Verify results
@@ -128,7 +128,7 @@ public class ScopedService : IScopedService {}
                 return;
             }
 
-            var analyzer = new DependencyInjectionRegistrationAnalyzer();
+            var analyzer = new MissingRegistrationAnalyzer(true);
 
             // Analyze project
             var diagnostics = await ProjectAnalyzer.AnalyzeProjectAsync(projectPath, analyzer);
@@ -159,7 +159,7 @@ public class ScopedService : IScopedService {}
             var projectFiles = Directory.GetFiles(solutionDir, "*.csproj", SearchOption.AllDirectories);
             Console.WriteLine($"Found {projectFiles.Length} projects to analyze");
 
-            var analyzer = new DependencyInjectionRegistrationAnalyzer();
+            var analyzer = new MissingRegistrationAnalyzer(true);
 
             // Analyze each project
             foreach (var projectFile in projectFiles)
@@ -171,7 +171,7 @@ public class ScopedService : IScopedService {}
                     var results = await ProjectAnalyzer.GetDiagnosticsOfTypeAsync(
                         projectFile,
                         analyzer,
-                        DependencyInjectionRegistrationAnalyzer.DiagnosticId);
+                        MissingRegistrationAnalyzer.DiagnosticId);
 
                     Console.WriteLine($"Found {results.Count} DI issues:");
                     foreach (var result in results)
