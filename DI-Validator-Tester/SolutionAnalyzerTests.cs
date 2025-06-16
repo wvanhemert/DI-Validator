@@ -20,7 +20,7 @@ namespace DI_Validator_Tester
             {
                 SolutionPath = solutionPath,
                 SeverityFilter = new[] { DiagnosticSeverity.Warning, DiagnosticSeverity.Error, DiagnosticSeverity.Info },
-                EnableLogging = false,
+                EnableLogging = true,
                 FailOnInfo = false,
             };
 

@@ -31,22 +31,7 @@ namespace DI_Validator_Analyzers.Analyzers
             isEnabledByDefault: true,
             description: Description);
 
-        public const string UnusedDiagnosticId = "DI004";
-        private static readonly LocalizableString UnusedTitle = "Unused DI Registration";
-        private static readonly LocalizableString UnusedMessageFormat = "Type '{0}' is registered but not used by any constructor.";
-        private static readonly LocalizableString UnusedDescription = "This service was registered in the DI container but is never injected into any known constructor.";
-
-        private static readonly DiagnosticDescriptor UnusedRule = new DiagnosticDescriptor(
-            UnusedDiagnosticId,
-            UnusedTitle,
-            UnusedMessageFormat,
-            Category,
-            DiagnosticSeverity.Info,
-            isEnabledByDefault: true,
-            description: UnusedDescription);
-
-
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule, UnusedRule);
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
 
         bool enableLogging = false;
         AnalysisData analysisData;
