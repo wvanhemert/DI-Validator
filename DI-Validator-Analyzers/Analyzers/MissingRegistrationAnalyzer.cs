@@ -14,7 +14,7 @@ namespace DI_Validator_Analyzers.Analyzers
     public class MissingRegistrationAnalyzer : DiagnosticAnalyzer
     {
         // -- Diagnostic info setup --
-        public const string DiagnosticId = "DI001";
+        public const string DiagnosticId = "DI001BETA";
         private const string Category = "Dependency Injection";
         private static readonly LocalizableString Title = "Missing Dependency Injection Registration";
         private static readonly LocalizableString MessageFormat = "Type '{0}' is used in constructor but appears to be missing from DI registration.";
@@ -92,9 +92,6 @@ namespace DI_Validator_Analyzers.Analyzers
         {
             var invocation = (InvocationExpressionSyntax)context.Node;
 
-            //Console.WriteLine(invocation.ToString());
-
-            // check if the call has member access
             if (invocation.Expression is not MemberAccessExpressionSyntax memberAccess)
                 return;
 
@@ -102,7 +99,7 @@ namespace DI_Validator_Analyzers.Analyzers
             if (symbolInfo.Symbol is not IMethodSymbol methodSymbol)
                 return;
 
-            // ensure its an extension method from Microsoft.Extensions.DependencyInjection
+            // Ensure it's from Microsoft.Extensions.DependencyInjection
             var containingNamespace = methodSymbol.ContainingNamespace.ToDisplayString();
             var containingType = methodSymbol.ContainingType?.Name;
 
@@ -112,22 +109,69 @@ namespace DI_Validator_Analyzers.Analyzers
 
             var methodName = methodSymbol.Name;
 
-            // check if it is a DI registration method from the list
             if (!Helpers.RegistrationMethods.Contains(methodName))
+                return;
+
+            // Walk up the expression to ensure it's rooted in something like builder.Services
+            if (!IsFromWebApplicationBuilderServices(memberAccess, context.SemanticModel))
                 return;
 
             Log($"Found DI method: {methodName} at {invocation.GetLocation().GetLineSpan().StartLinePosition}");
 
-            // get type name and add it to the list
             if (memberAccess.Name is GenericNameSyntax genericName)
             {
                 var typeSymbol = context.SemanticModel.GetTypeInfo(genericName.TypeArgumentList.Arguments.First()).Type;
-                if (typeSymbol != null)
+                if (typeSymbol != null && registeredServices.Add(typeSymbol))
                 {
-                    if (registeredServices.Add(typeSymbol))
-                        Log($"Registered type: {typeSymbol}");
+                    Log($"Registered type: {typeSymbol}");
                 }
             }
+        }
+
+        private bool IsFromWebApplicationBuilderServices(MemberAccessExpressionSyntax expression, SemanticModel semanticModel)
+        {
+            Log($"IsFromWebApplicationBuilderServices: Checking '{expression}'");
+            if (expression.Expression is not MemberAccessExpressionSyntax memberAccess)
+            {
+                Log($"IsFromWebApplicationBuilderServices: '{expression.Expression}' is not a member access expression.");
+                return false;
+            }
+
+            if (memberAccess.Name.Identifier.Text != "Services")
+            {
+                Log($"IsFromWebApplicationBuilderServices: Member name is not 'Services' but '{memberAccess.Name.Identifier.Text}'.");
+                return false;
+            }
+
+            var symbolInfo = semanticModel.GetSymbolInfo(memberAccess.Expression).Symbol;
+            if (symbolInfo == null)
+            {
+                Log("IsFromWebApplicationBuilderServices: No symbol info for the expression before '.Services'.");
+                return false;
+            }
+
+            Log($"IsFromWebApplicationBuilderServices: Expression symbol kind = {symbolInfo.Kind}, name = {symbolInfo.Name}");
+
+            ITypeSymbol? type = symbolInfo switch
+            {
+                ILocalSymbol local => local.Type,
+                IPropertySymbol prop => prop.Type,
+                IFieldSymbol field => field.Type,
+                _ => null
+            };
+
+            if (type == null)
+            {
+                Log("IsFromWebApplicationBuilderServices: Could not determine type from symbol.");
+                return false;
+            }
+
+            var isWebAppBuilder = type.Name == "WebApplicationBuilder" &&
+                                  type.ContainingNamespace.ToDisplayString() == "Microsoft.AspNetCore.Builder";
+
+            Log($"IsFromWebApplicationBuilderServices: Resolved type = {type}, isWebAppBuilder = {isWebAppBuilder}");
+
+            return isWebAppBuilder;
         }
 
         private void CollectControllerConstructors(SyntaxNodeAnalysisContext context, AnalysisData analysisData)
