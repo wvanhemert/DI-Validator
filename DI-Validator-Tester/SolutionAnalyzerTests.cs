@@ -15,7 +15,7 @@ namespace DI_Validator_Tester
         public async Task AnalyzeSolution()
         {
             // Arrange
-            var solutionPath = @"C:\Users\wvanhemert\source\repos\DIAssertionsCasus\DIAssertionsCasus.sln";
+            var solutionPath = @"G:\DEV\repos\sopra\DIAssertionsCasus-master\DIAssertionsCasus.sln";
             var config = new DI_Validator_Analyzers.Models.SolutionAnalysisConfig
             {
                 SolutionPath = solutionPath,
