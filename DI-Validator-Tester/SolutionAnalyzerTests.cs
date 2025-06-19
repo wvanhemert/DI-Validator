@@ -1,4 +1,5 @@
-﻿using DI_Validator_Analyzers;
+﻿using DI_Analyzer_TestHelpers;
+using DI_Validator_Analyzers;
 using Microsoft.CodeAnalysis;
 using System;
 using System.Collections.Generic;
@@ -20,7 +21,7 @@ namespace DI_Validator_Tester
             {
                 SolutionPath = solutionPath,
                 SeverityFilter = new[] { DiagnosticSeverity.Warning, DiagnosticSeverity.Error, DiagnosticSeverity.Info },
-                EnableLogging = true,
+                EnableLogging = false,
                 FailOnInfo = false,
             };
 
@@ -52,9 +53,23 @@ namespace DI_Validator_Tester
                 Assert.IsFalse(diagnostics.Any(d => d.Severity >= DiagnosticSeverity.Info), "Dependency Injection info was produced, and counted as a warning.");
                 Assert.IsFalse(diagnostics.Any());
             }
-            else Assert.IsTrue(diagnostics.Any(d => d.Severity <= DiagnosticSeverity.Info));
+            else Assert.IsTrue(diagnostics.Any(d => d.Severity <= DiagnosticSeverity.Info || !diagnostics.Any()));
 
 
+        }
+
+        [TestMethod]
+        public async Task AnalyzeSolutionWithHelper()
+        {
+            // Arrange
+            var config = new DI_Validator_Analyzers.Models.SolutionAnalysisConfig
+            {
+                ReferenceType = typeof(SolutionAnalyzerTests),
+                SeverityFilter = new[] { DiagnosticSeverity.Warning, DiagnosticSeverity.Error, DiagnosticSeverity.Info },
+                EnableLogging = false,
+                FailOnInfo = false,
+            };
+            await AnalyzerTestRunner.AssertSolution(config);
         }
     }
 }

@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\DI-Analyzer-TestHelpers\DI-Analyzer-TestHelpers.csproj" />
     <ProjectReference Include="..\DI-Validator-Analyzers\DI-Validator-Analyzers.csproj" />
   </ItemGroup>
 
