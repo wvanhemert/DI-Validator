@@ -254,40 +254,59 @@ namespace DI_Validator_Analyzers.Analyzers
                 return;
 
             // Only process methods extending IServiceCollection
-            if (methodSymbol.Parameters.FirstOrDefault()?.Type.ToDisplayString() != "Microsoft.Extensions.DependencyInjection.IServiceCollection")
+            if (methodSymbol.Parameters.FirstOrDefault()?.Type.ToDisplayString() != Helpers.IServiceCollectionName)
                 return;
 
             var body = methodDecl.Body;
             if (body == null) return;
 
             var registeredTypes = new List<ITypeSymbol>();
+            List<IMethodSymbol> calledExtensionMethods = new();
 
             foreach (var invocation in body.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
                 if (invocation.Expression is not MemberAccessExpressionSyntax innerMemberAccess)
-                    continue;
-
-                var innerMethod = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
-                if (innerMethod == null ||
-                    innerMethod.ContainingNamespace.ToDisplayString() != "Microsoft.Extensions.DependencyInjection" ||
-                    !Helpers.RegistrationMethods.Contains(innerMethod.Name))
-                    continue;
-
-                if (innerMemberAccess.Name is GenericNameSyntax generic &&
-                    generic.TypeArgumentList.Arguments.FirstOrDefault() is TypeSyntax typeSyntax)
                 {
-                    var typeSymbol = context.SemanticModel.GetTypeInfo(typeSyntax).Type;
-                    if (typeSymbol != null)
+                    continue;
+                }
+
+                var invokedMethodSymbol = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
+                if (invokedMethodSymbol == null)
+                    continue;
+
+                // Check for DI registration methods
+                if (invokedMethodSymbol.ContainingNamespace.ToDisplayString() == Helpers.DiNamespace &&
+                    Helpers.RegistrationMethods.Contains(invokedMethodSymbol.Name))
+                {
+                    if (innerMemberAccess.Name is GenericNameSyntax generic &&
+                        generic.TypeArgumentList.Arguments.FirstOrDefault() is TypeSyntax typeSyntax)
                     {
-                        registeredTypes.Add(typeSymbol);
-                        Log($"Extension method {methodSymbol.Name} registers {typeSymbol}");
+                        var typeSymbol = context.SemanticModel.GetTypeInfo(typeSyntax).Type;
+                        if (typeSymbol != null)
+                        {
+                            registeredTypes.Add(typeSymbol);
+                            Log($"Extension method {methodSymbol.Name} registers {typeSymbol}");
+                        }
+                    }
+                }
+                else
+                {
+                    // Check for nested method call that has a parameter of IServiceCollection
+                    // If reduced, get original definition
+                    var originalMethodSymbol = invokedMethodSymbol.ReducedFrom ?? methodSymbol;
+                    if (originalMethodSymbol.IsExtensionMethod &&
+                        originalMethodSymbol.Parameters.FirstOrDefault()?.Type.ToDisplayString() == Helpers.IServiceCollectionName)
+                    {
+                        calledExtensionMethods.Add(originalMethodSymbol.OriginalDefinition);
+                        Log($"Extension method {methodSymbol.Name} calls another extension method: {originalMethodSymbol.Name}");
                     }
                 }
             }
 
             if (registeredTypes.Count > 0)
-                analysisData.ExtensionMethodRegistrations[methodSymbol.OriginalDefinition] = registeredTypes;
+                analysisData.ExtensionMethodRegistrations.Add(new ExtensionMethodData(methodSymbol.OriginalDefinition, registeredTypes, calledExtensionMethods));
         }
+
 
 
 

@@ -25,25 +25,37 @@ namespace DI_Validator_Analyzers.Models
         };
 
         public static bool TryGetExtensionRegistrationBySymbolOrName(
-            this ConcurrentDictionary<IMethodSymbol, List<ITypeSymbol>> dict,
+            this List<ExtensionMethodData> extensionMethods,
             IMethodSymbol calledSymbol,
-            out List<ITypeSymbol> registrations)
+            out ExtensionMethodData extensionMethodData)
         {
-            if (dict.TryGetValue(calledSymbol.OriginalDefinition, out registrations))
+            extensionMethodData = extensionMethods
+                .FirstOrDefault(data => SymbolEqualityComparer.Default.Equals(data.MethodSymbol.OriginalDefinition, calledSymbol.OriginalDefinition)) ?? null!;
+            if (extensionMethodData != null)
                 return true;
 
             var calledDisplay = calledSymbol.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            foreach (var (key, value) in dict)
+            foreach (var method in extensionMethods)
             {
-                if (key.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == calledDisplay)
+                if (method.MethodSymbol.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == calledDisplay)
                 {
-                    registrations = value;
+                    extensionMethodData = method;
                     return true;
                 }
             }
 
-            registrations = null!;
+            extensionMethodData = null!;
             return false;
+        }
+
+        public static bool TryGetMethodSymbol(this HashSet<IMethodSymbol> visitedMethods, IMethodSymbol calledSymbol, out IMethodSymbol methodSymbol)
+        {
+            methodSymbol = visitedMethods.FirstOrDefault(m => SymbolEqualityComparer.Default.Equals(m.OriginalDefinition, calledSymbol.OriginalDefinition));
+            if (methodSymbol != null)
+                return true;
+            var calledDisplay = calledSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            methodSymbol = visitedMethods.FirstOrDefault(m => m.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == calledDisplay);
+            return methodSymbol != null;
         }
 
         public static bool IsServiceRegistered(this HashSet<ITypeSymbol> registeredServices, ITypeSymbol? parameterSymbol)

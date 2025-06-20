@@ -16,6 +16,20 @@ namespace DI_Validator_Analyzers.Models
 
         public HashSet<IMethodSymbol> CalledExtensionMethods = new(SymbolEqualityComparer.Default);
 
-        public ConcurrentDictionary<IMethodSymbol, List<ITypeSymbol>> ExtensionMethodRegistrations = new(SymbolEqualityComparer.Default);
+        public List<ExtensionMethodData> ExtensionMethodRegistrations = new();
+        public HashSet<IMethodSymbol> VisitedMethods = new(SymbolEqualityComparer.Default);
+    }
+
+    public class ExtensionMethodData
+    {
+        public IMethodSymbol MethodSymbol { get; }
+        public List<ITypeSymbol> RegisteredTypes { get; }
+        public List<IMethodSymbol> CalledExtensionMethods { get; }
+        public ExtensionMethodData(IMethodSymbol methodSymbol, List<ITypeSymbol> registeredTypes, List<IMethodSymbol> calledExtensionMethods)
+        {
+            MethodSymbol = methodSymbol;
+            RegisteredTypes = registeredTypes;
+            CalledExtensionMethods = calledExtensionMethods;
+        }
     }
 }

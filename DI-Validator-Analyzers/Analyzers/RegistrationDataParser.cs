@@ -14,22 +14,11 @@ namespace DI_Validator_Analyzers.Analyzers
         {
             if (enableLogging) Console.WriteLine("[DI Debug] ----- Parsing extension method data -----");
 
-            
+            HashSet<IMethodSymbol> calledMethods = new HashSet<IMethodSymbol>(SymbolEqualityComparer.Default);
 
             foreach (var calledSymbol in analysisData.CalledExtensionMethods)
             {
-                if (analysisData.ExtensionMethodRegistrations.TryGetExtensionRegistrationBySymbolOrName(calledSymbol, out var types))
-                {
-                    foreach (var type in types)
-                    {
-                        analysisData.RegisteredServices.Add(type);
-                        if (enableLogging) Console.WriteLine($"[DI Debug] Resolved registration via {calledSymbol.Name}: {type}");
-                    }
-                }
-                else
-                {
-                    if (enableLogging) Console.WriteLine($"[DI Debug] Method {calledSymbol.Name} was called by the builder but does not register any services.");
-                }
+                GetRegisteredTypesFromExtensionMethod(analysisData, calledSymbol, enableLogging);
             }
 
             // prepare unused services list
@@ -48,6 +37,34 @@ namespace DI_Validator_Analyzers.Analyzers
                 Console.WriteLine("[DI Debug]");
             }
             return analysisData;
+        }
+
+        private static void GetRegisteredTypesFromExtensionMethod(AnalysisData analysisData, IMethodSymbol calledSymbol, bool enableLogging)
+        {
+            if (analysisData.ExtensionMethodRegistrations.TryGetExtensionRegistrationBySymbolOrName(calledSymbol, out var extensionMethodData))
+            {
+                if (analysisData.VisitedMethods.TryGetMethodSymbol(calledSymbol, out var methodSymbol))
+                {
+                    if (enableLogging) Console.WriteLine($"[DI Debug] Method {methodSymbol.Name} was already visited, skipping further analysis.");
+                    return;
+                }
+                analysisData.VisitedMethods.Add(extensionMethodData.MethodSymbol);
+                foreach (var type in extensionMethodData.RegisteredTypes)
+                {
+                    analysisData.RegisteredServices.Add(type);
+                    if (enableLogging) Console.WriteLine($"[DI Debug] Resolved registration via {calledSymbol.Name}: {type}");
+                }
+                foreach (var extMethod in extensionMethodData.CalledExtensionMethods)
+                {
+                    if (enableLogging) Console.WriteLine($"[DI Debug] Analyzing extension method {extMethod.Name} recursively for further registrations in this path.");
+                    GetRegisteredTypesFromExtensionMethod(analysisData, extMethod, enableLogging);
+                    
+                }
+            }
+            else
+            {
+                if (enableLogging) Console.WriteLine($"[DI Debug] Method {calledSymbol.Name} was called by the builder but does not register any services.");
+            }
         }
     }
 }
