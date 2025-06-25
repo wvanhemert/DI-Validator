@@ -303,7 +303,7 @@ namespace DI_Validator_Analyzers.Analyzers
                 }
             }
 
-            if (registeredTypes.Count > 0)
+            if (registeredTypes.Count > 0 || calledExtensionMethods.Count > 0)
                 analysisData.ExtensionMethodRegistrations.Add(new ExtensionMethodData(methodSymbol.OriginalDefinition, registeredTypes, calledExtensionMethods));
         }
 
