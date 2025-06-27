@@ -54,24 +54,29 @@ namespace DI_Validator_Analyzers.Analyzers
                     Log($"---- DI002 starting analysis of project: {compilationContext.Compilation.AssemblyName} ----");
                 }
 
-                // Collect all DI registrations
-                compilationContext.RegisterSyntaxNodeAction(
-                    ctx => CollectRegisteredTypes(ctx),
-                    SyntaxKind.InvocationExpression);
+                // data only gathered from the main project, seen as the project that contains the entry point and builder targeted for this analysis
+                if (compilationContext.Compilation.AssemblyName == analysisData.MainProjectAssemblyName)
+                {
+                    // Collect all DI registrations
+                    compilationContext.RegisterSyntaxNodeAction(
+                        ctx => CollectRegisteredTypes(ctx),
+                        SyntaxKind.InvocationExpression);
 
-                // Collect all controller constructors
-                compilationContext.RegisterSyntaxNodeAction(
-                    ctx => CollectControllerConstructors(ctx),
-                    SyntaxKind.ConstructorDeclaration);
-                context.RegisterSyntaxNodeAction(
-                    ctx => CollectPrimaryConstructors(ctx),
-                    SyntaxKind.ClassDeclaration);
+                    // Collect all controller constructors
+                    compilationContext.RegisterSyntaxNodeAction(
+                        ctx => CollectControllerConstructors(ctx),
+                        SyntaxKind.ConstructorDeclaration);
+                    context.RegisterSyntaxNodeAction(
+                        ctx => CollectPrimaryConstructors(ctx),
+                        SyntaxKind.ClassDeclaration);
 
+                    // Collect all extension methods called on WebApplicationBuilder.Services
+                    compilationContext.RegisterSyntaxNodeAction(
+                        ctx => CollectCalledExtensionMethods(ctx),
+                        SyntaxKind.InvocationExpression);
+                }
 
-                // Collect all extension methods called on WebApplicationBuilder.Services
-                compilationContext.RegisterSyntaxNodeAction(
-                    ctx => CollectCalledExtensionMethods(ctx),
-                    SyntaxKind.InvocationExpression);
+                // data gathered from all projects for cross project analysis
 
                 // Collect all extension methods that register types with DI
                 compilationContext.RegisterSyntaxNodeAction(

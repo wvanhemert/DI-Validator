@@ -17,7 +17,7 @@ namespace DI_Validator_Tester
         {
             var config = new SolutionAnalysisConfig
             {
-                SolutionPath = @"",
+                ProjectPath = @"C:\Users\wvanhemert\source\repos\DIAssertionsCasus\FooApi\FooApi.csproj",
                 SeverityFilter = new[] { DiagnosticSeverity.Warning, DiagnosticSeverity.Error, DiagnosticSeverity.Info },
                 EnableLogging = false,
                 FailOnInfo = false,

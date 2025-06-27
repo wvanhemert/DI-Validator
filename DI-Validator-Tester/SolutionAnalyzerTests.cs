@@ -17,9 +17,11 @@ namespace DI_Validator_Tester
         {
             // Arrange
             var solutionPath = @"C:\Users\wvanhemert\source\repos\DIAssertionsCasus\DIAssertionsCasus.sln";
+            var projectPath = @"C:\Users\wvanhemert\source\repos\DIAssertionsCasus\FooApi\FooApi.csproj";
             var config = new DI_Validator_Analyzers.Models.SolutionAnalysisConfig
             {
                 SolutionPath = solutionPath,
+                ProjectPath = projectPath,
                 SeverityFilter = new[] { DiagnosticSeverity.Warning, DiagnosticSeverity.Error, DiagnosticSeverity.Info },
                 EnableLogging = true,
                 FailOnInfo = false,
@@ -64,7 +66,7 @@ namespace DI_Validator_Tester
             // Arrange
             var config = new DI_Validator_Analyzers.Models.SolutionAnalysisConfig
             {
-                ReferenceType = typeof(SolutionAnalyzerTests),
+                ProjectType = typeof(SolutionAnalyzerTests),
                 SeverityFilter = new[] { DiagnosticSeverity.Warning, DiagnosticSeverity.Error, DiagnosticSeverity.Info },
                 EnableLogging = false,
                 FailOnInfo = false,

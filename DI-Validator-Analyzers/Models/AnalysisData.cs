@@ -18,6 +18,7 @@ namespace DI_Validator_Analyzers.Models
 
         public List<ExtensionMethodData> ExtensionMethodRegistrations = new();
         public HashSet<IMethodSymbol> VisitedMethods = new(SymbolEqualityComparer.Default);
+        public string MainProjectAssemblyName { get; set; } = string.Empty;
     }
 
     public class ExtensionMethodData

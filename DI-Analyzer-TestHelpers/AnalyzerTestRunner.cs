@@ -22,21 +22,37 @@ namespace DI_Analyzer_TestHelpers
         public static async Task AssertSolution(SolutionAnalysisConfig config)
         {
             // Arrange
-            if (string.IsNullOrWhiteSpace(config.SolutionPath))
+            if (string.IsNullOrEmpty(config.ProjectPath))
             {
-                if (config.ReferenceType == null)
-                    throw new ArgumentException("Either SolutionPath or ReferenceType must be set.");
+                // try to set the path based on the project type
+                if (config.ProjectType == null)
+                    throw new ArgumentException("Either ProjectPath or ProjectType must be set.");
 
-                var assemblyPath = config.ReferenceType.Assembly.Location;
+                var assemblyPath = config.ProjectType.Assembly.Location;
                 var dir = Path.GetDirectoryName(assemblyPath)!;
 
                 // seek up to .csproj file
                 var projectDir = Helpers.FindDirectoryWithFile(dir, "*.csproj");
                 if (projectDir == null)
                     throw new FileNotFoundException("Could not find a .csproj file upward from " + dir);
+                config.ProjectPath = Directory.GetFiles(projectDir, "*.csproj").First();
 
                 // seek up to .sln
                 var solutionDir = Helpers.FindDirectoryWithFile(projectDir, "*.sln");
+                if (solutionDir == null)
+                    throw new FileNotFoundException("Could not find a .sln file upward from project directory.");
+
+                var slnPath = Directory.GetFiles(solutionDir, "*.sln").First();
+                config.SolutionPath = slnPath;
+            }
+            else
+            {
+                // seek up to .sln
+                var directory = Path.GetDirectoryName(config.ProjectPath);
+                if (directory == null)
+                    throw new ArgumentException("ProjectPath must be a valid file path.");
+
+                var solutionDir = Helpers.FindDirectoryWithFile(directory, "*.sln");
                 if (solutionDir == null)
                     throw new FileNotFoundException("Could not find a .sln file upward from project directory.");
 

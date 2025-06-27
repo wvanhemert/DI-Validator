@@ -18,6 +18,12 @@ namespace DI_Validator_Analyzers
     {
         public static async Task<List<Diagnostic>> AnalyzeSolutionAsync(SolutionAnalysisConfig config)
         {
+            if (string.IsNullOrEmpty(config.ProjectPath))
+                throw new ArgumentException("ProjectPath must be set in the configuration by either supplying a project path or a project type.");
+
+            if (string.IsNullOrEmpty(config.SolutionPath))
+                throw new ArgumentException("SolutionPath must be set in the configuration through a valid project path or project type.");
+
             if (!MSBuildLocator.IsRegistered)
             {
                 MSBuildLocator.RegisterDefaults();
@@ -28,7 +34,26 @@ namespace DI_Validator_Analyzers
 
             var diagnostics = new List<Diagnostic>();
 
+            // determining main project's assembly name based on project path
+            string? targetAssemblyName = null;
+            var normalizedTargetPath = Path.GetFullPath(config.ProjectPath).Replace('\\', '/');
+
+            foreach (var project in solution.Projects)
+            {
+                var projectFilePath = Path.GetFullPath(project.FilePath ?? "").Replace('\\', '/');
+                if (string.Equals(projectFilePath, normalizedTargetPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    targetAssemblyName = project.AssemblyName;
+                    break;
+                }
+            }
+
+            if (targetAssemblyName == null)
+                throw new InvalidOperationException($"Could not find project with path: {config.ProjectPath}");
+
             AnalysisData data = new();
+
+            data.MainProjectAssemblyName = targetAssemblyName;
 
             var collectionAnalyzers = new DiagnosticAnalyzer[]
             {
