@@ -22,7 +22,21 @@ namespace DI_Validator_Analyzers.Analyzers
             }
 
             // prepare unused services list
-            analysisData.UnusedServices.UnionWith(analysisData.RegisteredServices);
+            var allSymbols = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+            var seenNames = new HashSet<string>();
+
+            foreach (var symbol in analysisData.UnusedServices.Concat(analysisData.RegisteredServices))
+            {
+                var fqn = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+                if (seenNames.Add(fqn))
+                {
+                    allSymbols.Add(symbol);
+                }
+            }
+
+            analysisData.UnusedServices.UnionWith(allSymbols);
+
+
 
             // Debug output of registered types
             if (enableLogging)

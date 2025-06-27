@@ -71,39 +71,40 @@ namespace DI_Validator_Analyzers.Analyzers
         private void AnalyzeControllerConstructor(CompilationAnalysisContext context, ControllerConstructorInfo controllerInfo)
         {
             var registeredServices = analysisData.RegisteredServices;
-            var constructor = controllerInfo.Constructor;
             var classSymbol = controllerInfo.ClassSymbol;
 
             if (controllerInfo.OriginAssemblyName != context.Compilation.AssemblyName)
                 return;
 
-            Log($"Analyzing controller constructor: {classSymbol.Name}.{constructor.Identifier}");
+            var parameters = ControllerConstructorInfo.GetConstructorParameters(controllerInfo);
 
-            // checking all constructor params
-            foreach (var parameter in constructor.ParameterList.Parameters)
+            Log($"Analyzing controller constructor: {classSymbol.Name} ({(controllerInfo.IsPrimaryConstructor ? "primary" : "regular")})");
+
+            foreach (var parameter in parameters)
             {
-                var parameterSymbol = controllerInfo.SemanticModel.GetTypeInfo(parameter.Type).Type as INamedTypeSymbol;
-                Log($"Checking parameter: {parameter.Identifier} of type {parameterSymbol}");
+                Log($"Checking parameter: {parameter.Name} of type {parameter.Type}");
 
-                // check if type is not in the registered list
-                if (!registeredServices.IsServiceRegistered(parameterSymbol))
+                if (!registeredServices.IsServiceRegistered(parameter.Type as INamedTypeSymbol))
                 {
-                    Log($"NOT REGISTERED: {parameterSymbol}");
-                    var diagnostic = Diagnostic.Create(
-                        Rule,
-                        parameter.Type.GetLocation(),
-                        parameterSymbol);
+                    Log($"NOT REGISTERED: {parameter.Type}");
 
+                    var syntaxRef = parameter.DeclaringSyntaxReferences.FirstOrDefault();
+                    var syntax = syntaxRef?.GetSyntax() as ParameterSyntax;
+                    var location = syntax?.Type?.GetLocation() ?? Location.None;
+
+                    var diagnostic = Diagnostic.Create(Rule, location, parameter.Type);
                     context.ReportDiagnostic(diagnostic);
                 }
                 else
                 {
-                    Log($"Found registration for: {parameterSymbol}");
-                    analysisData.UnusedServices.TryRemoveFallback(parameterSymbol);
+                    Log($"Found registration for: {parameter.Type}");
+                    analysisData.UnusedServices.TryRemoveFallback(parameter.Type as INamedTypeSymbol);
                 }
             }
+
             Log("");
         }
+
 
         private void Log(string message)
         {

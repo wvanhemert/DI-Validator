@@ -63,6 +63,10 @@ namespace DI_Validator_Analyzers.Analyzers
                 compilationContext.RegisterSyntaxNodeAction(
                     ctx => CollectControllerConstructors(ctx),
                     SyntaxKind.ConstructorDeclaration);
+                context.RegisterSyntaxNodeAction(
+                    ctx => CollectPrimaryConstructors(ctx),
+                    SyntaxKind.ClassDeclaration);
+
 
                 // Collect all extension methods called on WebApplicationBuilder.Services
                 compilationContext.RegisterSyntaxNodeAction(
@@ -188,6 +192,28 @@ namespace DI_Validator_Analyzers.Analyzers
             Log($"Collected controller constructor: {classSymbol.Name}.{constructor.Identifier}");
         }
 
+        private void CollectPrimaryConstructors(SyntaxNodeAnalysisContext context)
+        {
+            var classDeclaration = (ClassDeclarationSyntax)context.Node;
+
+            // Skip if no primary constructor
+            if (classDeclaration.ParameterList == null)
+                return;
+
+            var classSymbol = context.SemanticModel.GetDeclaredSymbol(classDeclaration);
+            if (classSymbol == null || !IsController(classSymbol))
+                return;
+
+            analysisData.ControllerConstructors.Add(new ControllerConstructorInfo(
+                primaryConstructor: classDeclaration,
+                classSymbol: classSymbol,
+                semanticModel: context.SemanticModel));
+
+            Log($"Collected controller primary constructor: {classSymbol.Name} (primary)");
+        }
+
+
+
         private bool IsController(INamedTypeSymbol classSymbol)
         {
             // just checking if class name ends with "Controller"
@@ -250,7 +276,7 @@ namespace DI_Validator_Analyzers.Analyzers
                 return;
 
             var methodSymbol = context.SemanticModel.GetDeclaredSymbol(methodDecl);
-            if (methodSymbol is null || !methodSymbol.IsExtensionMethod)
+            if (methodSymbol is null)
                 return;
 
             // Only process methods extending IServiceCollection
@@ -265,11 +291,6 @@ namespace DI_Validator_Analyzers.Analyzers
 
             foreach (var invocation in body.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
-                if (invocation.Expression is not MemberAccessExpressionSyntax innerMemberAccess)
-                {
-                    continue;
-                }
-
                 var invokedMethodSymbol = context.SemanticModel.GetSymbolInfo(invocation).Symbol as IMethodSymbol;
                 if (invokedMethodSymbol == null)
                     continue;
@@ -278,7 +299,7 @@ namespace DI_Validator_Analyzers.Analyzers
                 if (invokedMethodSymbol.ContainingNamespace.ToDisplayString() == Helpers.DiNamespace &&
                     Helpers.RegistrationMethods.Contains(invokedMethodSymbol.Name))
                 {
-                    if (innerMemberAccess.Name is GenericNameSyntax generic &&
+                    if (invocation.Expression is MemberAccessExpressionSyntax memberAccess && memberAccess.Name is GenericNameSyntax generic &&
                         generic.TypeArgumentList.Arguments.FirstOrDefault() is TypeSyntax typeSyntax)
                     {
                         var typeSymbol = context.SemanticModel.GetTypeInfo(typeSyntax).Type;
@@ -293,9 +314,8 @@ namespace DI_Validator_Analyzers.Analyzers
                 {
                     // Check for nested method call that has a parameter of IServiceCollection
                     // If reduced, get original definition
-                    var originalMethodSymbol = invokedMethodSymbol.ReducedFrom ?? methodSymbol;
-                    if (originalMethodSymbol.IsExtensionMethod &&
-                        originalMethodSymbol.Parameters.FirstOrDefault()?.Type.ToDisplayString() == Helpers.IServiceCollectionName)
+                    var originalMethodSymbol = invokedMethodSymbol.ReducedFrom ?? invokedMethodSymbol;
+                    if (originalMethodSymbol.Parameters.FirstOrDefault()?.Type.ToDisplayString() == Helpers.IServiceCollectionName)
                     {
                         calledExtensionMethods.Add(originalMethodSymbol.OriginalDefinition);
                         Log($"Extension method {methodSymbol.Name} calls another extension method: {originalMethodSymbol.Name}");
