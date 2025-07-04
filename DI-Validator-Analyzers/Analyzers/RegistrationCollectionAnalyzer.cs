@@ -51,7 +51,7 @@ namespace DI_Validator_Analyzers.Analyzers
             {
                 if (enableLogging)
                 {
-                    Log($"---- DI002 starting analysis of project: {compilationContext.Compilation.AssemblyName} ----");
+                    Log($"---- DI000 starting analysis of project: {compilationContext.Compilation.AssemblyName} ----");
                 }
 
                 // data only gathered from the main project, seen as the project that contains the entry point and builder targeted for this analysis
@@ -62,14 +62,6 @@ namespace DI_Validator_Analyzers.Analyzers
                         ctx => CollectRegisteredTypes(ctx),
                         SyntaxKind.InvocationExpression);
 
-                    // Collect all controller constructors
-                    compilationContext.RegisterSyntaxNodeAction(
-                        ctx => CollectControllerConstructors(ctx),
-                        SyntaxKind.ConstructorDeclaration);
-                    context.RegisterSyntaxNodeAction(
-                        ctx => CollectPrimaryConstructors(ctx),
-                        SyntaxKind.ClassDeclaration);
-
                     // Collect all extension methods called on WebApplicationBuilder.Services
                     compilationContext.RegisterSyntaxNodeAction(
                         ctx => CollectCalledExtensionMethods(ctx),
@@ -77,6 +69,12 @@ namespace DI_Validator_Analyzers.Analyzers
                 }
 
                 // data gathered from all projects for cross project analysis
+
+                // Collect all defined classes, to find controllers and to parse dependencies needing injection inside DI registered services later
+                context.RegisterSyntaxNodeAction(
+                    ctx => CollectUserDefinedClass(ctx),
+                    SyntaxKind.ClassDeclaration);
+
 
                 // Collect all extension methods that register types with DI
                 compilationContext.RegisterSyntaxNodeAction(
@@ -170,54 +168,49 @@ namespace DI_Validator_Analyzers.Analyzers
             return isWebAppBuilder;
         }
 
-        private void CollectControllerConstructors(SyntaxNodeAnalysisContext context)
+        private void CollectUserDefinedClass(SyntaxNodeAnalysisContext context)
         {
-            var constructor = (ConstructorDeclarationSyntax)context.Node;
-
-            // skip private constructors
-            if (!constructor.Modifiers.Any(SyntaxKind.PublicKeyword))
+            if (context.Node is not ClassDeclarationSyntax classDecl)
                 return;
 
-            // get containing class
-            var classDeclaration = constructor.Parent as ClassDeclarationSyntax;
-            if (classDeclaration == null)
+            var classSymbol = context.SemanticModel.GetDeclaredSymbol(classDecl);
+            if (classSymbol == null)
                 return;
 
-            // Check if it's a controller class
-            var classSymbol = context.SemanticModel.GetDeclaredSymbol(classDeclaration);
-            if (classSymbol == null || !IsController(classSymbol))
+            // skip system/framework types or 3rd party libraries
+            if (classSymbol.Locations.Any(loc => !loc.IsInSource))
                 return;
 
-            // Store the controller constructor info for later analysis
-            analysisData.ControllerConstructors.Add(new ControllerConstructorInfo(
-                constructor,
-                classSymbol,
-                context.SemanticModel));
+            bool isController = IsController(classSymbol);
 
-            Log($"Collected controller constructor: {classSymbol.Name}.{constructor.Identifier}");
+            // if the class has a primary constructor
+            if (classDecl.ParameterList is not null)
+            {
+                analysisData.UserDefinedClasses.Add(new ClassInfo(
+                    classDecl,
+                    classSymbol,
+                    context.SemanticModel,
+                    isController));
+
+                Log($"Collected user-defined primary constructor class: {classSymbol.Name}");
+                return;
+            }
+
+            // otherwise look for public constructors
+            foreach (var member in classDecl.Members.OfType<ConstructorDeclarationSyntax>())
+            {
+                if (!member.Modifiers.Any(SyntaxKind.PublicKeyword))
+                    continue;
+
+                analysisData.UserDefinedClasses.Add(new ClassInfo(
+                    member,
+                    classSymbol,
+                    context.SemanticModel,
+                    isController));
+
+                Log($"Collected user-defined class with constructor: {classSymbol.Name}.{member.Identifier}");
+            }
         }
-
-        private void CollectPrimaryConstructors(SyntaxNodeAnalysisContext context)
-        {
-            var classDeclaration = (ClassDeclarationSyntax)context.Node;
-
-            // Skip if no primary constructor
-            if (classDeclaration.ParameterList == null)
-                return;
-
-            var classSymbol = context.SemanticModel.GetDeclaredSymbol(classDeclaration);
-            if (classSymbol == null || !IsController(classSymbol))
-                return;
-
-            analysisData.ControllerConstructors.Add(new ControllerConstructorInfo(
-                primaryConstructor: classDeclaration,
-                classSymbol: classSymbol,
-                semanticModel: context.SemanticModel));
-
-            Log($"Collected controller primary constructor: {classSymbol.Name} (primary)");
-        }
-
-
 
         private bool IsController(INamedTypeSymbol classSymbol)
         {
@@ -243,6 +236,7 @@ namespace DI_Validator_Analyzers.Analyzers
 
             return false;
         }
+
 
         private void CollectCalledExtensionMethods(SyntaxNodeAnalysisContext context)
         {

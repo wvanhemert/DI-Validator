@@ -1,14 +1,16 @@
-﻿using DI_Validator_Analyzers.Models;
+﻿using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Data.Common;
+using System.Linq;
+using System.Reflection.Metadata;
+using System.Text;
+using System.Threading.Tasks;
+using DI_Validator_Analyzers.Models;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Diagnostics;
-using System;
-using System.Collections.Generic;
-using System.Collections.Immutable;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace DI_Validator_Analyzers.Analyzers
 {
@@ -19,8 +21,8 @@ namespace DI_Validator_Analyzers.Analyzers
         public const string DiagnosticId = "DI001";
         private const string Category = "Dependency Injection";
         private static readonly LocalizableString Title = "Missing Dependency Injection Registration";
-        private static readonly LocalizableString MessageFormat = "Type '{0}' is used in constructor but appears to be missing from DI registration.";
-        private static readonly LocalizableString Description = "Type '{0}' used in constructor is not registered with dependency injection.";
+        private static readonly LocalizableString MessageFormat = "Type '{0}' is used in a Controller constructor but appears to be missing from DI registration.";
+        private static readonly LocalizableString Description = "Type '{0}' used in a Controller constructor is not registered with dependency injection.";
 
         private static readonly DiagnosticDescriptor Rule = new DiagnosticDescriptor(
             DiagnosticId,
@@ -31,7 +33,22 @@ namespace DI_Validator_Analyzers.Analyzers
             isEnabledByDefault: true,
             description: Description);
 
-        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule);
+        public const string ServiceDiagnosticId = "DI002";
+        private const string ServiceCategory = "Dependency Injection";
+        private static readonly LocalizableString ServiceTitle = "Missing Dependency Injection Registration";
+        private static readonly LocalizableString ServiceMessageFormat = "Type '{0}' is used in a registered service but appears to be missing from DI registration.";
+        private static readonly LocalizableString ServiceDescription = "Type '{0}' used in a registered service is not registered with dependency injection.";
+
+        private static readonly DiagnosticDescriptor ServiceRule = new DiagnosticDescriptor(
+            ServiceDiagnosticId,
+            ServiceTitle,
+            ServiceMessageFormat,
+            ServiceCategory,
+            DiagnosticSeverity.Warning,
+            isEnabledByDefault: true,
+            description: ServiceDescription);
+
+        public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics => ImmutableArray.Create(Rule, ServiceRule);
 
         bool enableLogging = false;
         AnalysisData analysisData;
@@ -51,7 +68,7 @@ namespace DI_Validator_Analyzers.Analyzers
             {
                 if (enableLogging)
                 {
-                    Log($"---- DI003 starting validation of project: {compilationContext.Compilation.AssemblyName} ----");
+                    Log($"---- DI001, DI002 starting validation of project: {compilationContext.Compilation.AssemblyName} ----");
                 }
 
                 compilationContext.RegisterCompilationEndAction(ctx =>
@@ -62,13 +79,21 @@ namespace DI_Validator_Analyzers.Analyzers
                         AnalyzeControllerConstructor(ctx, controllerInfo);
                     }
 
+                    if (ctx.Compilation.AssemblyName == analysisData.MainProjectAssemblyName)
+                    {
+                        foreach (var ServiceDependency in analysisData.RegisteredServiceDependencies)
+                        {
+                            AnalyzeServiceDependency(ctx, ServiceDependency);
+                        }
+                    }
+
                     Log($"--- Finished DI003 analysis of project: {ctx.Compilation.AssemblyName} ---");
                     Log("");
                 });
             });
         }
 
-        private void AnalyzeControllerConstructor(CompilationAnalysisContext context, ControllerConstructorInfo controllerInfo)
+        private void AnalyzeControllerConstructor(CompilationAnalysisContext context, ClassInfo controllerInfo)
         {
             var registeredServices = analysisData.RegisteredServices;
             var classSymbol = controllerInfo.ClassSymbol;
@@ -76,7 +101,7 @@ namespace DI_Validator_Analyzers.Analyzers
             if (controllerInfo.OriginAssemblyName != context.Compilation.AssemblyName)
                 return;
 
-            var parameters = ControllerConstructorInfo.GetConstructorParameters(controllerInfo);
+            var parameters = ClassInfo.GetConstructorParameters(controllerInfo);
 
             Log($"Analyzing controller constructor: {classSymbol.Name} ({(controllerInfo.IsPrimaryConstructor ? "primary" : "regular")})");
 
@@ -103,6 +128,24 @@ namespace DI_Validator_Analyzers.Analyzers
             }
 
             Log("");
+        }
+
+        private void AnalyzeServiceDependency(CompilationAnalysisContext context, ITypeSymbol serviceDependency)
+        {
+            Log($"Analyzing Service dependency: {serviceDependency}");
+            var registeredServices = analysisData.RegisteredServices;
+
+            if (!registeredServices.Any(x => x.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == serviceDependency.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)))
+            {
+                Log($"NOT REGISTERED: {serviceDependency}");
+                var diagnostic = Diagnostic.Create(ServiceRule, null, serviceDependency);
+                context.ReportDiagnostic(diagnostic);
+            }
+            else
+            {
+                Log($"Found registration for: {serviceDependency}");
+                analysisData.UnusedServices.TryRemoveFallback(serviceDependency as INamedTypeSymbol);
+            }
         }
 
 

@@ -12,12 +12,16 @@ namespace DI_Validator_Analyzers.Models
     {
         public HashSet<ITypeSymbol> RegisteredServices { get; } = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
         public HashSet<ITypeSymbol> UnusedServices { get; } = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
-        public List<ControllerConstructorInfo> ControllerConstructors { get; } = new List<ControllerConstructorInfo>();
+        public List<ClassInfo> ControllerConstructors { get; set; } = new List<ClassInfo>();
+        public List<ClassInfo> UserDefinedClasses { get; set; } = new();
+        public HashSet<ITypeSymbol> RegisteredServiceDependencies { get; set; } = new(SymbolEqualityComparer.Default);
 
         public HashSet<IMethodSymbol> CalledExtensionMethods = new(SymbolEqualityComparer.Default);
+        public HashSet<ITypeSymbol> VisitedClasses = new(SymbolEqualityComparer.Default);
 
         public List<ExtensionMethodData> ExtensionMethodRegistrations = new();
         public HashSet<IMethodSymbol> VisitedMethods = new(SymbolEqualityComparer.Default);
+        
         public string MainProjectAssemblyName { get; set; } = string.Empty;
     }
 

@@ -193,17 +193,18 @@ namespace DI_Validator_Analyzers.Analyzers
                 return;
 
             // Store the controller constructor info for later analysis
-            analysisData.ControllerConstructors.Add(new ControllerConstructorInfo(
+            analysisData.ControllerConstructors.Add(new ClassInfo(
                 constructor,
                 classSymbol,
-                context.SemanticModel));
+                context.SemanticModel,
+                true));
 
             Log($"Collected controller constructor: {classSymbol.Name}.{constructor.Identifier}");
         }
 
         private void AnalyzeControllerConstructor(
             CompilationAnalysisContext context,
-            ControllerConstructorInfo controllerInfo,
+            ClassInfo controllerInfo,
             HashSet<ITypeSymbol> registeredServices)
         {
             var constructor = controllerInfo.Constructor;

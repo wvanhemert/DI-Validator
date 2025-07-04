@@ -80,7 +80,7 @@ namespace DI_Validator_Analyzers
                 var results = await withAnalyzers.GetAnalyzerDiagnosticsAsync();
             }
 
-            data = RegistrationDataParser.ParseExtensionMethodData(data, config.EnableLogging);
+            data = RegistrationDataParser.ParseData(data, config.EnableLogging);
 
             // running the validation
             if (config.EnableLogging) Console.WriteLine($"---- Starting validation for solution: {solution.FilePath} ----");

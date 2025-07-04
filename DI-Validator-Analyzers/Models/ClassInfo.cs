@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace DI_Validator_Analyzers.Models
 {
-    public class ControllerConstructorInfo
+    public class ClassInfo
     {
         public ConstructorDeclarationSyntax? Constructor { get; }
         public ClassDeclarationSyntax? PrimaryConstructor { get; }
@@ -17,32 +17,37 @@ namespace DI_Validator_Analyzers.Models
         public string OriginAssemblyName { get; }
 
         public bool IsPrimaryConstructor => PrimaryConstructor != null;
+        public bool IsControllerClass { get; }
 
 
-        public ControllerConstructorInfo(
+        public ClassInfo(
             ConstructorDeclarationSyntax constructor,
             INamedTypeSymbol classSymbol,
-            SemanticModel semanticModel)
+            SemanticModel semanticModel,
+            bool isController)
         {
             Constructor = constructor;
             ClassSymbol = classSymbol;
             SemanticModel = semanticModel;
-            OriginAssemblyName = semanticModel.Compilation.AssemblyName;
+            OriginAssemblyName = semanticModel.Compilation.AssemblyName!;
+            IsControllerClass = isController;
         }
 
-        public ControllerConstructorInfo(
-        ClassDeclarationSyntax primaryConstructor,
-        INamedTypeSymbol classSymbol,
-        SemanticModel semanticModel)
+        public ClassInfo(
+            ClassDeclarationSyntax primaryConstructor,
+            INamedTypeSymbol classSymbol,
+            SemanticModel semanticModel,
+            bool isController)
         {
             Constructor = null;
             PrimaryConstructor = primaryConstructor;
             ClassSymbol = classSymbol;
             SemanticModel = semanticModel;
             OriginAssemblyName = semanticModel.Compilation.AssemblyName!;
+            IsControllerClass = isController;
         }
 
-        public static IEnumerable<IParameterSymbol> GetConstructorParameters(ControllerConstructorInfo info)
+        public static IEnumerable<IParameterSymbol> GetConstructorParameters(ClassInfo info)
         {
             if (info.Constructor != null)
             {

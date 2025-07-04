@@ -74,14 +74,23 @@ namespace DI_Analyzer_TestHelpers
 
             Console.WriteLine($"---------- RESULT: {diagnostics.Count} diagnostics ----------");
 
+
+
             foreach (var diag in diagnostics)
             {
-                Console.WriteLine($"{diag.Id} ({diag.Severity}): {diag.GetMessage()}");
+                if (diag.Id == "DI001")
+                {
+                    Console.WriteLine($"{diag.Id} ({diag.Severity}): {diag.GetMessage()} - {GetFromLocation(diag.Location)}");
+                } else if (diag.Id == "DI002" || diag.Id == "DI003")
+                {
+                    Console.WriteLine($"{diag.Id} ({diag.Severity}): {diag.GetMessage()}");
+                }
+                    
             }
             Console.WriteLine($"-------------------------------------------");
 
             // Assert
-            Assert.IsFalse(diagnostics.Any(d => d.Id == "DI001"), "Some expected dependencies are not registered.");
+            Assert.IsFalse(diagnostics.Any(d => d.Id == "DI001" || d.Id == "DI002"), "Some expected dependencies are not registered.");
             Assert.IsFalse(diagnostics.Any(d => d.Severity >= DiagnosticSeverity.Warning), "Dependency Injection Warnings were found.");
             if (config.FailOnInfo)
             {
@@ -91,6 +100,27 @@ namespace DI_Analyzer_TestHelpers
             else Assert.IsTrue(diagnostics.Any(d => d.Severity <= DiagnosticSeverity.Info) || !diagnostics.Any());
 
 
+        }
+
+        static string GetFromLocation(Location location)
+        {
+            if (location == null || !location.IsInSource)
+                return null;
+
+            var sourceTree = location.SourceTree;
+            var span = location.SourceSpan;
+
+            // Full file path
+            var filePath = sourceTree?.FilePath ?? "<unknown>";
+
+            // Get line and column info from the syntax tree's line mapping
+            var lineSpan = sourceTree.GetLineSpan(span);
+
+            // Roslyn lines and columns are zero-based, VS expects 1-based
+            int line = lineSpan.StartLinePosition.Line + 1;
+            int column = lineSpan.StartLinePosition.Character + 1;
+
+            return $"{filePath}({line},{column})";
         }
     }
 }

@@ -16,7 +16,7 @@ namespace DI_Validator_Analyzers.Analyzers
     public class UnusedRegisteredDependencyAnalyzer : DiagnosticAnalyzer
     {
         // -- Diagnostic info setup --
-        public const string DiagnosticId = "DI002";
+        public const string DiagnosticId = "DI003";
         private const string Category = "Dependency Injection";
         private static readonly LocalizableString Title = "Unused DI Registration";
         private static readonly LocalizableString MessageFormat = "Type '{0}' is registered but not used by any constructor.";
@@ -51,7 +51,7 @@ namespace DI_Validator_Analyzers.Analyzers
             {
                 if (enableLogging)
                 {
-                    Log($"---- DI004 starting validation of project: {compilationContext.Compilation.AssemblyName} ----");
+                    Log($"---- DI003 starting validation of project: {compilationContext.Compilation.AssemblyName} ----");
                 }
 
                 compilationContext.RegisterCompilationEndAction(ctx =>
