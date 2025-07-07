@@ -120,6 +120,13 @@ namespace DI_Validator_Analyzers.Analyzers
                 if (typeSymbol != null && registeredServices.Add(typeSymbol))
                 {
                     Log($"Registered type: {typeSymbol}");
+                    if (typeSymbol.IsAbstract)
+                    {
+                        var implementationSymbol = context.SemanticModel.GetTypeInfo(genericName.TypeArgumentList.Arguments[1]).Type;
+                        if (implementationSymbol == null)
+                            return;
+                        analysisData.InterfaceImplementationDict.Add(typeSymbol, implementationSymbol);
+                    }
                 }
             }
         }

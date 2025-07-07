@@ -30,31 +30,13 @@ namespace DI_Validator_Analyzers.Models
             out ExtensionMethodData extensionMethodData)
         {
             extensionMethodData = extensionMethods
-                .FirstOrDefault(data => SymbolEqualityComparer.Default.Equals(data.MethodSymbol.OriginalDefinition, calledSymbol.OriginalDefinition)) ?? null!;
-            if (extensionMethodData != null)
-                return true;
-
-            var calledDisplay = calledSymbol.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            foreach (var method in extensionMethods)
-            {
-                if (method.MethodSymbol.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == calledDisplay)
-                {
-                    extensionMethodData = method;
-                    return true;
-                }
-            }
-
-            extensionMethodData = null!;
-            return false;
+                .FirstOrDefault(data => FQNSymbolComparer.Instance.Equals(data.MethodSymbol.OriginalDefinition, calledSymbol.OriginalDefinition)) ?? null!;
+            return extensionMethodData != null;
         }
 
         public static bool TryGetMethodSymbol(this HashSet<IMethodSymbol> visitedMethods, IMethodSymbol calledSymbol, out IMethodSymbol methodSymbol)
         {
-            methodSymbol = visitedMethods.FirstOrDefault(m => SymbolEqualityComparer.Default.Equals(m.OriginalDefinition, calledSymbol.OriginalDefinition));
-            if (methodSymbol != null)
-                return true;
-            var calledDisplay = calledSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            methodSymbol = visitedMethods.FirstOrDefault(m => m.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == calledDisplay);
+            methodSymbol = visitedMethods.FirstOrDefault(m => FQNSymbolComparer.Instance.Equals(m.OriginalDefinition, calledSymbol.OriginalDefinition)) ?? null!;
             return methodSymbol != null;
         }
 
@@ -65,30 +47,11 @@ namespace DI_Validator_Analyzers.Models
 
             var paramDef = parameterSymbol.OriginalDefinition;
 
-            // Direct match
             if (registeredServices.Contains(paramDef))
                 return true;
 
-            // Fallback to string-based comparison
-            var paramName = paramDef.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            return registeredServices.Any(registered =>
-                registered.OriginalDefinition.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == paramName);
+            return false;
         }
-
-        public static bool TryRemoveFallback(this HashSet<ITypeSymbol> set, ITypeSymbol symbol)
-        {
-            if (set.Remove(symbol))
-                return true;
-
-            var targetName = symbol?.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            if (targetName == null) return false;
-
-            var toRemove = set.FirstOrDefault(s =>
-                s.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == targetName);
-
-            return toRemove != null && set.Remove(toRemove);
-        }
-
 
     }
 }

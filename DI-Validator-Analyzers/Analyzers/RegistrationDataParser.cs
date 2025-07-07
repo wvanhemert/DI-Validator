@@ -22,7 +22,6 @@ namespace DI_Validator_Analyzers.Analyzers
 
             // prepare unused services list
             analysisData.UnusedServices.UnionWith(analysisData.RegisteredServices);
-            analysisData.UnusedServices.RemoveDuplicatesByName();
 
             // Debug output of registered types
             if (enableLogging)
@@ -82,18 +81,16 @@ namespace DI_Validator_Analyzers.Analyzers
         {
             if (enableLogging) Console.WriteLine("[DI Debug] ----- Parsing service dependencies data -----");
 
-            HashSet<ITypeSymbol> foundDependencies = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
+            HashSet<ITypeSymbol> foundDependencies = new HashSet<ITypeSymbol>(FQNSymbolComparer.Instance);
 
             foreach (var registeredDependency in analysisData.RegisteredServices)
             {
                 var dependencies = GetDependenciesFromClass(analysisData, registeredDependency);
 
-                HashSet<ITypeSymbol> typeSymbols = new HashSet<ITypeSymbol>(dependencies, SymbolEqualityComparer.Default);
+                HashSet<ITypeSymbol> typeSymbols = new HashSet<ITypeSymbol>(dependencies, FQNSymbolComparer.Instance);
 
                 analysisData.RegisteredServiceDependencies.UnionWith(typeSymbols);
             }
-
-            analysisData.RegisteredServiceDependencies.RemoveDuplicatesByName();
 
             return analysisData;
         }
@@ -114,10 +111,30 @@ namespace DI_Validator_Analyzers.Analyzers
                     yield return current;
 
                 var classInfo = analysisData.UserDefinedClasses
-                    .FirstOrDefault(c => c.ClassSymbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == current.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+                    .FirstOrDefault(c => FQNSymbolComparer.Instance.Equals(c.ClassSymbol, current));
 
                 if (classInfo == null)
-                    continue;
+                {
+                    // class might not be found because type in constructor is an interface. trying to looking up registered implementation of interface instead.
+                    // if it doesn't get found, there will be a diagnostic later on for the interface missing from DI registration,
+                    // so we dont have to throw an error here if we can't find it.
+                    ITypeSymbol implementationType;
+                    try
+                    {
+                        implementationType = analysisData.InterfaceImplementationDict[current];
+                    }
+                    catch (KeyNotFoundException)
+                    {
+                        continue;
+                    }
+
+                    classInfo = analysisData.UserDefinedClasses
+                    .FirstOrDefault(c => FQNSymbolComparer.Instance.Equals(c.ClassSymbol, implementationType));
+                    
+                    if (classInfo == null)
+                        continue;
+                }
+                    
 
                 foreach (var param in ClassInfo.GetConstructorParameters(classInfo))
                 {
@@ -125,23 +142,6 @@ namespace DI_Validator_Analyzers.Analyzers
                         queue.Enqueue(paramType);
                 }
             }
-        }
-
-        private static HashSet<ITypeSymbol> RemoveDuplicatesByName(this HashSet<ITypeSymbol> list)
-        {
-            var allSymbols = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
-            var seenNames = new HashSet<string>();
-
-            foreach (var symbol in list)
-            {
-                var fqn = symbol.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-                if (seenNames.Add(fqn))
-                {
-                    allSymbols.Add(symbol);
-                }
-            }
-
-            return allSymbols;
         }
     }
 }

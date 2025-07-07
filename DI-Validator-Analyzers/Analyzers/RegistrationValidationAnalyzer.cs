@@ -123,7 +123,7 @@ namespace DI_Validator_Analyzers.Analyzers
                 else
                 {
                     Log($"Found registration for: {parameter.Type}");
-                    analysisData.UnusedServices.TryRemoveFallback(parameter.Type as INamedTypeSymbol);
+                    analysisData.UnusedServices.Remove(parameter.Type);
                 }
             }
 
@@ -135,7 +135,7 @@ namespace DI_Validator_Analyzers.Analyzers
             Log($"Analyzing Service dependency: {serviceDependency}");
             var registeredServices = analysisData.RegisteredServices;
 
-            if (!registeredServices.Any(x => x.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat) == serviceDependency.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat)))
+            if (!registeredServices.Any(x => FQNSymbolComparer.Instance.Equals(x, serviceDependency)))
             {
                 Log($"NOT REGISTERED: {serviceDependency}");
                 var diagnostic = Diagnostic.Create(ServiceRule, null, serviceDependency);
@@ -144,7 +144,7 @@ namespace DI_Validator_Analyzers.Analyzers
             else
             {
                 Log($"Found registration for: {serviceDependency}");
-                analysisData.UnusedServices.TryRemoveFallback(serviceDependency as INamedTypeSymbol);
+                analysisData.UnusedServices.Remove(serviceDependency);
             }
         }
 
