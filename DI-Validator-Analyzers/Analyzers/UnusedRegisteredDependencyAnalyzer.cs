@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 
 namespace DI_Validator_Analyzers.Analyzers
 {
+    // This analyzer is used to produce the unused dependency diagnostics.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public class UnusedRegisteredDependencyAnalyzer : DiagnosticAnalyzer
     {

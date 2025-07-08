@@ -12,6 +12,7 @@ namespace DI_Validator_Tester
     [TestClass]
     public class SolutionAnalyzerTests
     {
+        // This code is a test of the analyzers without using the AnalyzerTestRunner of TestHelpers.
         [TestMethod]
         public async Task AnalyzeSolution()
         {

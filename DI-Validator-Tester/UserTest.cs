@@ -12,6 +12,8 @@ namespace DI_Validator_Tester
     [TestClass]
     public class UserTest
     {
+        // Users should use this test if they wish to test a solution via this runner.
+        // The same code can be used directly in other projects (but using ProjectType for the project registration) when this tool is added as a package.
         [TestMethod]
         public async Task AnalyzeSolution()
         {

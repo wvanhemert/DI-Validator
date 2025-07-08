@@ -10,6 +10,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace DI_Validator_Analyzers.Analyzers
 {
+    // This is old code from a prototype. It's not used in the final solution.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public class MissingRegistrationAnalyzer : DiagnosticAnalyzer
     {

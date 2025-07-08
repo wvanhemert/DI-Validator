@@ -12,6 +12,7 @@ using System.Diagnostics;
 
 namespace DI_Validator_Tester
 {
+    // This is old code from a prototype. It's not used in the final solution.
     /// <summary>
     /// A utility class that analyzes C# projects using source file analysis
     /// </summary>

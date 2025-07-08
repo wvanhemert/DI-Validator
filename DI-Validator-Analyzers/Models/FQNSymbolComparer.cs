@@ -7,6 +7,10 @@ using Microsoft.CodeAnalysis;
 
 namespace DI_Validator_Analyzers.Models
 {
+    /// <summary>
+    /// This symbol comparer falls back on using the fully qualified names of symbols to compare them when the regular equality check fails.
+    /// This fallback is crucial for cross-compile equality, since the full equality changes per compilation.
+    /// </summary>
     public class FQNSymbolComparer : IEqualityComparer<ISymbol>
     {
         public static readonly FQNSymbolComparer Instance = new();

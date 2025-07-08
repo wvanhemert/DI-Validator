@@ -14,6 +14,7 @@ using Microsoft.CodeAnalysis.Diagnostics;
 
 namespace DI_Validator_Analyzers.Analyzers
 {
+    // this is the main diagnostic producing analyzer. It produces diagnostics for missing dependency warnings in controllers and registered services.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public class RegistrationValidationAnalyzer : DiagnosticAnalyzer
     {
@@ -81,7 +82,7 @@ namespace DI_Validator_Analyzers.Analyzers
 
                     if (ctx.Compilation.AssemblyName == analysisData.MainProjectAssemblyName)
                     {
-                        foreach (var ServiceDependency in analysisData.RegisteredServiceDependencies)
+                        foreach (var ServiceDependency in analysisData.RegisteredServicesDependencies)
                         {
                             AnalyzeServiceDependency(ctx, ServiceDependency);
                         }

@@ -7,6 +7,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace DI_Validator_Tester
 {
+    // This is old code from a prototype. It's not used in the final solution.
     [TestClass]
     public class ProjectAnalyzerPrototypeTests
     {

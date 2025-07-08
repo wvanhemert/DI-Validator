@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 namespace DI_Validator_Analyzers.Analyzers
 {
+    // This class is used to parse data after the data collection step.
     public static class RegistrationDataParser
     {
         public static AnalysisData ParseData(AnalysisData analysisData, bool enableLogging)
@@ -89,7 +90,7 @@ namespace DI_Validator_Analyzers.Analyzers
 
                 HashSet<ITypeSymbol> typeSymbols = new HashSet<ITypeSymbol>(dependencies, FQNSymbolComparer.Instance);
 
-                analysisData.RegisteredServiceDependencies.UnionWith(typeSymbols);
+                analysisData.RegisteredServicesDependencies.UnionWith(typeSymbols);
             }
 
             return analysisData;

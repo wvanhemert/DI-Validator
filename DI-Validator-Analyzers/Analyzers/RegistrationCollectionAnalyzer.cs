@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 
 namespace DI_Validator_Analyzers.Analyzers
 {
+    // This analyzer is used to gather data on all projects in the solution.
     [DiagnosticAnalyzer(LanguageNames.CSharp)]
     public class RegistrationCollectionAnalyzer : DiagnosticAnalyzer
     {

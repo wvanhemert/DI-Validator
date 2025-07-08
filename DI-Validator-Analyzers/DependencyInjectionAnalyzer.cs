@@ -14,6 +14,7 @@ using System.Threading.Tasks;
 
 namespace DI_Validator_Analyzers
 {
+    // This is the manager of the analysis process. It loads the project, runs analyzers in the right sequence, and then returns the results.
     public static class DependencyInjectionAnalyzer
     {
         public static async Task<List<Diagnostic>> AnalyzeSolutionAsync(SolutionAnalysisConfig config)

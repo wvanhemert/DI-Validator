@@ -15,7 +15,7 @@ namespace DI_Validator_Analyzers.Models
         public HashSet<ITypeSymbol> UnusedServices { get; } = new HashSet<ITypeSymbol>(FQNSymbolComparer.Instance);
         public List<ClassInfo> ControllerConstructors { get; set; } = new List<ClassInfo>();
         public List<ClassInfo> UserDefinedClasses { get; set; } = new();
-        public HashSet<ITypeSymbol> RegisteredServiceDependencies { get; set; } = new(FQNSymbolComparer.Instance);
+        public HashSet<ITypeSymbol> RegisteredServicesDependencies { get; set; } = new(FQNSymbolComparer.Instance);
 
         public HashSet<IMethodSymbol> CalledExtensionMethods = new(FQNSymbolComparer.Instance);
         public HashSet<ITypeSymbol> VisitedClasses = new(FQNSymbolComparer.Instance);
